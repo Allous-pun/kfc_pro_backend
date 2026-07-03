@@ -6,6 +6,8 @@ const dotenv = require('dotenv');
 const authRoutes = require('./modules/auth/auth.routes');
 const restaurantRoutes = require('./modules/restaurants/restaurants.routes');
 const tableRoutes = require('./modules/tables/tables.routes');
+const roleRoutes = require('./modules/roles/roles.routes');
+const permissionRoutes = require('./modules/permissions/permissions.routes');
 
 dotenv.config();
 
@@ -19,6 +21,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/tables', tableRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/permissions', permissionRoutes);
 
 // Test route
 app.get('/', (req, res) => {
