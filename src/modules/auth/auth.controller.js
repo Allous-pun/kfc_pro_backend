@@ -2,6 +2,8 @@ const Auth = require('./auth.model');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { validationResult } = require('express-validator');
+const cloudinary = require('../../config/cloudinary');
+const fs = require('fs');
 
 // Generate JWT Token
 const generateToken = (user) => {
@@ -64,7 +66,8 @@ const register = async (req, res) => {
         last_name: user.last_name,
         role_id: user.role_id,
         role_name: user.role_name,
-        restaurant_id: user.restaurant_id
+        restaurant_id: user.restaurant_id,
+        profile_image: user.profile_image || null
       }
     });
   } catch (error) {
@@ -118,6 +121,7 @@ const login = async (req, res) => {
         role_id: user.role_id,
         role_name: user.role_name,
         restaurant_id: user.restaurant_id,
+        profile_image: user.profile_image || null,
         permissions
       }
     });
@@ -170,13 +174,37 @@ const updateProfile = async (req, res) => {
       return res.status(400).json({ message: 'Email or phone already in use' });
     }
 
-    await Auth.update(req.user.id, {
+    let profileImage = null;
+    
+    // Handle image upload if file is present
+    if (req.file) {
+      try {
+        // Upload to Cloudinary
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'kfc/users',
+          width: 500,
+          height: 500,
+          crop: 'fill',
+          gravity: 'face'
+        });
+        profileImage = result.secure_url;
+        
+        // Delete local file
+        fs.unlinkSync(req.file.path);
+      } catch (error) {
+        console.error('Cloudinary upload error:', error);
+        return res.status(500).json({ message: 'Failed to upload image' });
+      }
+    }
+
+    // Update user
+    await Auth.updateProfileWithImage(req.user.id, {
       email,
       phone,
       first_name,
       last_name,
       shift_preference
-    });
+    }, profileImage);
 
     const user = await Auth.findById(req.user.id);
     const permissions = await Auth.getUserPermissions(req.user.id);
@@ -191,6 +219,44 @@ const updateProfile = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// @desc    Upload profile image
+// @route   POST /api/auth/upload-profile-image
+// @access  Private
+const uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'kfc/users',
+      width: 500,
+      height: 500,
+      crop: 'fill',
+      gravity: 'face'
+    });
+
+    // Delete local file
+    fs.unlinkSync(req.file.path);
+
+    // Update user profile image
+    await Auth.updateProfileImage(req.user.id, result.secure_url);
+
+    const user = await Auth.findById(req.user.id);
+
+    res.json({
+      success: true,
+      message: 'Profile image uploaded successfully',
+      profile_image: result.secure_url,
+      user
+    });
+  } catch (error) {
+    console.error('Cloudinary upload error:', error);
+    res.status(500).json({ message: 'Failed to upload image', error: error.message });
   }
 };
 
@@ -256,6 +322,7 @@ module.exports = {
   login,
   getMe,
   updateProfile,
+  uploadProfileImage,
   changePassword,
   logout
 };
