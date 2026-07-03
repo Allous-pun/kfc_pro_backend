@@ -5,7 +5,7 @@ const Auth = {
   // Find user by email or phone
   findByEmailOrPhone: async (identifier) => {
     const [rows] = await db.query(
-      `SELECT u.*, r.name as role_name, r.restaurant_id as role_restaurant_id
+      `SELECT u.*, r.name as role_name
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE (u.email = ? OR u.phone = ?) AND u.status = 'active'`,
@@ -79,6 +79,43 @@ const Auth = {
     return result;
   },
 
+  // Update user profile with image
+  updateProfileWithImage: async (id, data, imageUrl) => {
+    const fields = [];
+    const values = [];
+    
+    const allowedFields = ['email', 'phone', 'first_name', 'last_name', 'shift_preference'];
+    for (const field of allowedFields) {
+      if (data[field] !== undefined) {
+        fields.push(`${field} = ?`);
+        values.push(data[field]);
+      }
+    }
+    
+    if (imageUrl) {
+      fields.push('profile_image = ?');
+      values.push(imageUrl);
+    }
+    
+    if (fields.length === 0) return null;
+    
+    values.push(id);
+    const [result] = await db.query(
+      `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+    return result;
+  },
+
+  // Update profile image only
+  updateProfileImage: async (id, imageUrl) => {
+    const [result] = await db.query(
+      'UPDATE users SET profile_image = ? WHERE id = ?',
+      [imageUrl, id]
+    );
+    return result;
+  },
+
   // Update last login
   updateLastLogin: async (id) => {
     const [result] = await db.query(
@@ -112,43 +149,6 @@ const Auth = {
       [userId, resource, action]
     );
     return rows[0].count > 0;
-  },
-
-  // Update user profile with image
-  updateProfileWithImage: async (id, data, imageUrl) => {
-    const fields = [];
-    const values = [];
-    
-    const allowedFields = ['email', 'phone', 'first_name', 'last_name', 'shift_preference'];
-    for (const field of allowedFields) {
-      if (data[field] !== undefined) {
-        fields.push(`${field} = ?`);
-        values.push(data[field]);
-      }
-    }
-    
-    if (imageUrl) {
-      fields.push('profile_image = ?');
-      values.push(imageUrl);
-    }
-    
-    if (fields.length === 0) return null;
-    
-    values.push(id);
-    const [result] = await db.query(
-      `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
-      values
-    );
-    return result;
-  },
-
-  // Update user profile image only
-  updateProfileImage: async (id, imageUrl) => {
-    const [result] = await db.query(
-      'UPDATE users SET profile_image = ? WHERE id = ?',
-      [imageUrl, id]
-    );
-    return result;
   }
 };
 
