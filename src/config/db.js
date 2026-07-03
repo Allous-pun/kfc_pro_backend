@@ -14,4 +14,16 @@ const pool = mysql.createPool({
 });
 
 const db = pool.promise();
+
+// Test connection
+(async () => {
+  try {
+    const [rows] = await db.query('SELECT 1');
+    console.log('✅ MySQL connected successfully!');
+  } catch (error) {
+    console.error('❌ MySQL connection failed:', error.message);
+    process.exit(1);
+  }
+})();
+
 module.exports = db;
